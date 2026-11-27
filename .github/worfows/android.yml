@@ -39,7 +39,12 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
+            SDKMANAGER="$(command -v sdkmanager || true)"
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
           fi
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -52,8 +57,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Checking ZIP..."
 
           test -f pension_source_revised.zip
 
@@ -110,6 +113,7 @@ jobs:
       - name: Show APK files
         shell: bash
         run: |
+          echo "===== APK FILES ====="
           find "$PROJECT_DIR" -type f -name "*.apk"
 
       - name: Upload User APK
@@ -125,3 +129,4 @@ jobs:
           name: Pension-Admin-APK
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/admin/debug/*.apk
           if-no-files-found: warn
+
