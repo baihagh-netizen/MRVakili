@@ -39,7 +39,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(which sdkmanager)
+            SDKMANAGER="$(command -v sdkmanager)"
           fi
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -53,17 +53,21 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "Checking ZIP..."
+
           test -f pension_source_revised.zip
 
           rm -rf source
           mkdir -p source
 
-          unzip -q pension_source_revised.zip -d source
+          unzip -o pension_source_revised.zip -d source
 
           echo "===== Extracted files ====="
           find source | sort
 
           SETTINGS_FILE=$(find source -type f $$ -name "settings.gradle" -o -name "settings.gradle.kts" $$ | head -n 1)
+
+          echo "SETTINGS_FILE=$SETTINGS_FILE"
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: settings.gradle not found"
@@ -72,8 +76,7 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Detected project:"
-          echo "$PROJECT_DIR"
+          echo "Detected project: $PROJECT_DIR"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
@@ -113,16 +116,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Pension-User-APK
-          path: |
-            ${{ env.PROJECT_DIR }}/app/build/outputs/apk/user/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/user/debug/*.apk
           if-no-files-found: warn
 
       - name: Upload Admin APK
         uses: actions/upload-artifact@v4
         with:
           name: Pension-Admin-APK
-          path: |
-            ${{ env.PROJECT_DIR }}/app/build/outputs/apk/admin/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/admin/debug/*.apk
           if-no-files-found: warn
-
-
