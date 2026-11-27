@@ -1,4 +1,3 @@
-
 name: Android APK
 
 on:
@@ -29,9 +28,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -41,78 +37,67 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --licenses < /dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Check and extract source ZIP
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Checking source ZIP..."
+          echo "Checking ZIP file..."
 
-          if [ ! -f pension_source_revised.zip ]; then
-            echo "ERROR: pension_source_revised.zip not found in repository root"
-            exit 1
-          fi
+          test -f pension_source_revised.zip
 
           unzip -t pension_source_revised.zip
 
           mkdir -p source
           unzip -q pension_source_revised.zip -d source
 
-          echo "=== Extracted files ==="
-          find source -maxdepth 5 -type f | sort
+          echo "Checking project files..."
 
-          echo "Searching for Android project..."
+          PROJECT_DIR="source/pension_user_source"
 
-          SETTINGS_FILE="$(find source -type f -name settings.gradle -print -quit)"
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: settings.gradle not found inside ZIP"
-            exit 1
-          fi
-
-          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
-
-          if [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
-            echo "ERROR: app/build.gradle not found"
-            echo "Project directory: $PROJECT_DIR"
-            exit 1
-          fi
+          test -f "$PROJECT_DIR/settings.gradle"
+          test -f "$PROJECT_DIR/build.gradle"
+          test -f "$PROJECT_DIR/app/build.gradle"
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
           echo "PROJECT_DIR=$GITHUB_WORKSPACE/$PROJECT_DIR" >> "$GITHUB_ENV"
 
-          echo "Android project found:"
-          echo "$PROJECT_DIR"
+          echo "Project files verified."
 
-      - name: Build user and admin APKs
+      - name: Build User and Admin APKs
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Building Android APKs..."
-          echo "Project: $PROJECT_DIR"
 
           cd "$PROJECT_DIR"
 
           gradle assembleUserDebug assembleAdminDebug --stacktrace
 
-          echo "Build completed."
+          echo "APK build completed."
 
-          echo "=== Generated APK files ==="
           find app/build/outputs/apk -type f -name "*.apk"
 
-      - name: Upload user APK
+      - name: Upload User APK
         uses: actions/upload-artifact@v4
         with:
           name: Pension-User-APK
-          path: source/**/app/build/outputs/apk/user/debug/*.apk
+          path: source/pension_user_source/app/build/outputs/apk/user/debug/*.apk
           if-no-files-found: error
 
-      - name: Upload admin APK
+      - name: Upload Admin APK
         uses: actions/upload-artifact@v4
         with:
           name: Pension-Admin-APK
-          path: source/**/app/build/outputs/apk/admin/debug/*.apk
+          path: source/pension_user_source/app/build/outputs/apk/admin/debug/*.apk
           if-no-files-found: error
