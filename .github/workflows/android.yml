@@ -36,12 +36,12 @@ jobs:
       - name: Install Android SDK packages
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
 
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
+            SDKMANAGER="$(which sdkmanager)"
           fi
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -53,71 +53,74 @@ jobs:
       - name: Check and extract source ZIP
         shell: bash
         run: |
-          set -euo pipefail
-
-          echo "Checking ZIP file..."
+          set -e
 
           if [ ! -f pension_source_revised.zip ]; then
-            echo "ERROR: pension_source_revised.zip not found!"
+            echo "ZIP file not found"
             exit 1
           fi
 
-          unzip -t pension_source_revised.zip
-
           mkdir -p source
+
           unzip -q pension_source_revised.zip -d source
 
-      - name: Debug project structure
+      - name: Find Android project
         shell: bash
         run: |
-          echo "===== DIRECTORY TREE ====="
-          find source -type f | sort
+          set -e
 
-      - name: Detect Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          PROJECT_DIR="$(find source -type f -name settings.gradle | head -n 1 | xargs dirname)"
+          PROJECT_DIR=$(find source -name settings.gradle -type f | head -n 1 | xargs dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "settings.gradle not found"
             exit 1
           fi
 
-          echo "Detected project: $PROJECT_DIR"
+          echo "Project found at:"
+          echo "$PROJECT_DIR"
 
-          echo "PROJECT_DIR=$GITHUB_WORKSPACE/$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
 
-      - name: Build APKs
+      - name: Show project structure
         shell: bash
         run: |
-          set -euo pipefail
+          find "$PROJECT_DIR" -maxdepth 3 -type f | sort
+
+      - name: Show Gradle tasks
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew tasks --all
+          else
+            gradle tasks --all
+          fi
+
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          set -e
 
           cd "$PROJECT_DIR"
 
           if [ -f gradlew ]; then
             chmod +x gradlew
-
-            ./gradlew \
-              assembleUserDebug \
-              assembleAdminDebug \
-              --stacktrace
+            ./gradlew assembleDebug --stacktrace
           else
-            gradle \
-              assembleUserDebug \
-              assembleAdminDebug \
-              --stacktrace
+            gradle assembleDebug --stacktrace
           fi
 
-          echo "APK build completed"
+      - name: Find APK files
+        shell: bash
+        run: |
+          find "$PROJECT_DIR" -type f -name "*.apk"
 
-          find . -type f -name "*.apk"
-
-      - name: Upload all APKs
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APKs
+          name: Pension-APK
           path: |
             source/**/*.apk
           if-no-files-found: error
