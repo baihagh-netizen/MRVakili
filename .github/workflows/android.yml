@@ -41,7 +41,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(which sdkmanager)"
+            SDKMANAGER="$(command -v sdkmanager)"
           fi
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -67,50 +67,57 @@ jobs:
           mkdir -p source
           unzip -q pension_source_revised.zip -d source
 
-          PROJECT_DIR="source/pension_user_source"
+      - name: Debug project structure
+        shell: bash
+        run: |
+          echo "===== DIRECTORY TREE ====="
+          find source -type f | sort
 
-          echo "Checking project files..."
+      - name: Detect Android project
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          test -f "$PROJECT_DIR/settings.gradle"
-          test -f "$PROJECT_DIR/build.gradle"
-          test -f "$PROJECT_DIR/app/build.gradle"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          PROJECT_DIR="$(find source -type f -name settings.gradle | head -n 1 | xargs dirname)"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "settings.gradle not found"
+            exit 1
+          fi
+
+          echo "Detected project: $PROJECT_DIR"
 
           echo "PROJECT_DIR=$GITHUB_WORKSPACE/$PROJECT_DIR" >> "$GITHUB_ENV"
 
-          echo "Project files verified."
-
-      - name: Make Gradle Wrapper executable
-        shell: bash
-        run: |
-          chmod +x "$PROJECT_DIR/gradlew"
-
-      - name: Build User and Admin APKs
+      - name: Build APKs
         shell: bash
         run: |
           set -euo pipefail
 
           cd "$PROJECT_DIR"
 
-          ./gradlew \
-            assembleUserDebug \
-            assembleAdminDebug \
-            --stacktrace
+          if [ -f gradlew ]; then
+            chmod +x gradlew
 
-          echo "APK build completed."
+            ./gradlew \
+              assembleUserDebug \
+              assembleAdminDebug \
+              --stacktrace
+          else
+            gradle \
+              assembleUserDebug \
+              assembleAdminDebug \
+              --stacktrace
+          fi
 
-          find app/build/outputs/apk -type f -name "*.apk"
+          echo "APK build completed"
 
-      - name: Upload User APK
+          find . -type f -name "*.apk"
+
+      - name: Upload all APKs
         uses: actions/upload-artifact@v4
         with:
-          name: Pension-User-APK
-          path: source/pension_user_source/app/build/outputs/apk/user/debug/*.apk
-          if-no-files-found: error
-
-      - name: Upload Admin APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Pension-Admin-APK
-          path: source/pension_user_source/app/build/outputs/apk/admin/debug/*.apk
+          name: Android-APKs
+          path: |
+            source/**/*.apk
           if-no-files-found: error
