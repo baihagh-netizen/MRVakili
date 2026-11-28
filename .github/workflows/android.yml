@@ -1,4 +1,4 @@
-name: Android APK
+<CodeBlock language="yaml" editable> name: Android APK
 
 on: workflow_dispatch: push: paths: - 'pension_source_revised.zip' - '.github/workflows/android.yml'
 
@@ -58,4 +58,4 @@ find app/build/outputs/apk -type f -name "*.apk"
 
 - name: Upload User APK uses: actions/upload-artifact@v4 with: name: Pension-User-APK path: source/pension_user_source/app/build/outputs/apk/user/debug/*.apk if-no-files-found: error
 
-- name: Upload Admin APK uses: actions/upload-artifact@v4 with: name: Pension-Admin-APK path: source/pension_user_source/app/build/outputs/apk/admin/debug/*.apk if-no-files-found: error
+- name: Upload Admin APK uses: actions/upload-artifact@v4 with: name: Pension-Admin-APK path: source/pension_user_source/app/build/outputs/apk/admin/debug/*.apk if-no-files-found: error </CodeBlock>
